@@ -943,14 +943,7 @@ with tab_predict:
         3: "3단계 · 주 5~10시간",
         4: "4단계 · 주 10시간 초과",
     }
-  education_labels = {
-    0: "0 · 정규 교육을 받지 않음",
-    1: "1 · 기초 초등교육",
-    2: "2 · 초등·중등교육 일부",
-    3: "3 · 중등교육",
-    4: "4 · 고등교육",
-    }
-    travel_labels = {
+      travel_labels = {
         1: "1 · 15분 미만",
         2: "2 · 15~30분",
         3: "3 · 30분~1시간",
@@ -1030,23 +1023,10 @@ with tab_predict:
             )
 
         with second_right:
-            Medu = st.selectbox(
-                "어머니의 교육 수준",
-                options=[0, 1, 2, 3, 4],
-                format_func=lambda value: education_labels[value],
-                index=2,
+            st.info(
+                "부모의 교육 수준 변수는 포르투갈 원자료의 교육 단계 구분을 "
+                "한국의 학교급과 정확히 대응시키기 어려워 예측 변수에서 제외했습니다."
             )
-            Fedu = st.selectbox(
-                "아버지의 교육 수준",
-                options=[0, 1, 2, 3, 4],
-                format_func=lambda value: education_labels[value],
-                index=2,
-            )
-          st.caption(
-    "이 항목은 포르투갈 UCI 원자료의 부모 교육 수준을 나타냅니다. "
-    "한국의 초등학교·중학교·고등학교 학년과 정확히 대응하는 값이 아니므로 "
-    "특정 한국 학년으로 해석하지 않고 교육 단계로 구분했습니다."
-)
 
         submitted = st.form_submit_button(
             "내 수학 성취도 예측하기", use_container_width=True
@@ -1061,8 +1041,6 @@ with tab_predict:
                 "schoolsup": schoolsup,
                 "famsup": famsup,
                 "paid": paid,
-                "Medu": int(Medu),
-                "Fedu": int(Fedu),
                 "internet": internet,
                 "traveltime": int(traveltime),
                 "higher": higher,
@@ -1211,6 +1189,7 @@ with st.expander("프로젝트의 분석 기준과 한계"):
         - UCI 자료는 포르투갈의 특정 학교 학생 자료이며 한국 학생 전체를 대표하지 않습니다.
         - 데이터에는 강남·대치동 여부, 학원 수준, 사교육 시간, 학교별 시험 난이도 같은 정보가 없습니다.
         - 추가 유료 수업 여부(paid)는 수학 과목의 유료 수업 여부만 뜻하며 학원 수준이나 지역을 나타내지 않습니다.
+        - 부모의 교육 수준 변수는 원자료의 교육 단계 구분을 한국의 학교급과 직접 대응시키기 어려워 예측 변수에서 제외했습니다.
         - 부모의 교육 수준, 인터넷 이용, 통학 시간 등은 데이터에 기록된 배경 정보이며 성적의 원인이라고 단정할 수 없습니다.
         - 모델 예측은 학습 데이터에서 발견한 패턴을 바탕으로 한 추정값이며 실제 개인의 성적을 보장하지 않습니다.
         - 100점 환산값은 G3에 5를 곱한 비례 환산 참고값이며 한국 학교의 실제 내신 점수와 같지 않습니다.
