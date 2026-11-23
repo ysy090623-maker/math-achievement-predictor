@@ -934,7 +934,7 @@ with tab_predict:
     st.subheader("학습 습관과 교육 환경으로 수학 성적 예측하기")
     st.write(
         f"현재 가장 낮은 교차검증 MAE를 기록한 **{best_model_name}** 모델을 사용합니다. "
-        "입력한 정보를 바탕으로 최종 성적 G3를 먼저 예측하고, 예측 점수에 따라 세 수준으로 분류합니다."
+        "입력한 정보를 바탕으로 최종 성적 G3를 예측하고, 예측 점수에 따라 세 수준으로 분류합니다."
     )
 
     studytime_labels = {
@@ -951,10 +951,19 @@ with tab_predict:
         4: "4 · 1시간 초과",
     }
 
+    education_labels = {
+        0: "0 · 정규 교육을 받지 않음",
+        1: "1 · 기초 초등교육",
+        2: "2 · 초등·중등교육 일부",
+        3: "3 · 중등교육",
+        4: "4 · 고등교육",
+    }
+
     default_absences = int(round(data["absences"].median()))
     max_absences = max(30, int(data["absences"].max()))
     default_failures = int(round(data["failures"].median()))
     max_failures = max(4, int(data["failures"].max()))
+
     with st.form("student_prediction_form"):
         st.markdown("**① 기본 학습 습관**")
         first_left, first_right = st.columns(2)
@@ -1023,10 +1032,23 @@ with tab_predict:
             )
 
         with second_right:
-            st.info(
-                "부모의 교육 수준 변수는 포르투갈 원자료의 교육 단계 구분을 "
-                "한국의 학교급과 정확히 대응시키기 어려워 예측 변수에서 제외했습니다."
+            Medu = st.selectbox(
+                "어머니의 교육 수준",
+                options=[0, 1, 2, 3, 4],
+                format_func=lambda value: education_labels[value],
+                index=2,
             )
+            Fedu = st.selectbox(
+                "아버지의 교육 수준",
+                options=[0, 1, 2, 3, 4],
+                format_func=lambda value: education_labels[value],
+                index=2,
+            )
+
+        st.caption(
+            "부모 교육 수준은 포르투갈 UCI 원자료의 교육 단계 코드입니다. "
+            "한국의 학교 학년과 정확히 일치하는 값은 아니므로 교육 단계로 해석합니다."
+        )
 
         submitted = st.form_submit_button(
             "내 수학 성취도 예측하기", use_container_width=True
@@ -1041,6 +1063,8 @@ with tab_predict:
                 "schoolsup": schoolsup,
                 "famsup": famsup,
                 "paid": paid,
+                "Medu": int(Medu),
+                "Fedu": int(Fedu),
                 "internet": internet,
                 "traveltime": int(traveltime),
                 "higher": higher,
@@ -1069,6 +1093,7 @@ with tab_predict:
         with result_left:
             st.metric("예상 최종 수학 성적(G3)", f"{predicted_score:.1f} / 20점")
             st.metric("100점 만점 환산 참고값", f"{converted_score:.1f} / 100점")
+
             if predicted_level == "상위":
                 st.success("예측 성취도: 상위 그룹 (15~20점)")
             elif predicted_level == "중위":
@@ -1095,17 +1120,18 @@ with tab_predict:
             "이는 평가 데이터에서 실제 점수와 예측 점수 사이의 평균적인 차이이며, "
             "개별 학생의 오차가 정확히 이 값이라는 뜻은 아닙니다."
         )
+
         st.caption(
             f"학습 데이터 5겹 교차검증에서 절대 오차의 80백분위 값은 약 "
-            f"±{training['error_80']:.1f}점이었습니다. 이는 과거 교차검증 예측의 오차 분포를 "
-            "요약한 참고값이며, 개인별 성적의 확정 구간이나 보장 범위는 아닙니다."
+            f"±{training['error_80']:.1f}점이었습니다. "
+            "개인별 성적의 확정 구간이나 보장 범위는 아닙니다."
         )
 
         st.divider()
         st.subheader("입력 조건을 바꾸면 예측 점수는 어떻게 달라질까?")
         st.write(
             "아래 표는 현재 입력에서 한 가지 항목만 바꾸고 나머지는 그대로 둔 가상 비교입니다. "
-            "모델이 학습한 패턴을 확인하는 기능이며, 해당 조건이 성적을 직접 올리거나 내린다는 뜻은 아닙니다."
+            "모델이 학습한 패턴을 확인하는 기능이며, 인과관계를 의미하지는 않습니다."
         )
 
         scenario_rows = []
@@ -1113,13 +1139,17 @@ with tab_predict:
         def add_scenario(feature, label, value, display_value):
             scenario = current_input.copy()
             scenario.loc[0, feature] = value
-            scenario_score = float(np.clip(best_model.predict(scenario)[0], 0, 20))
+            scenario_score = float(
+                np.clip(best_model.predict(scenario)[0], 0, 20)
+            )
             scenario_rows.append(
                 {
                     "비교 항목": label,
                     "입력값": display_value,
                     "예상 G3": round(scenario_score, 2),
-                    "현재 예측과 차이": round(scenario_score - predicted_score, 2),
+                    "현재 예측과 차이": round(
+                        scenario_score - predicted_score, 2
+                    ),
                     "성취도": score_to_level(scenario_score),
                 }
             )
@@ -1145,7 +1175,13 @@ with tab_predict:
             add_scenario("absences", "결석 횟수", value, f"{value}회")
 
         failure_candidates = list(
-            dict.fromkeys([0, int(current_input.loc[0, "failures"]), max_failures])
+            dict.fromkeys(
+                [
+                    0,
+                    int(current_input.loc[0, "failures"]),
+                    max_failures,
+                ]
+            )
         )
         for value in failure_candidates:
             add_scenario("failures", "과거 낙제 횟수", value, f"{value}회")
@@ -1156,44 +1192,35 @@ with tab_predict:
             ("famsup", "가족 교육 지원"),
         ]:
             for value in ["yes", "no"]:
-                add_scenario(feature, label, value, "예" if value == "yes" else "아니요")
+                add_scenario(
+                    feature,
+                    label,
+                    value,
+                    "예" if value == "yes" else "아니요",
+                )
+
+        for feature, label in [
+            ("Medu", "어머니의 교육 수준"),
+            ("Fedu", "아버지의 교육 수준"),
+        ]:
+            for value in [0, 1, 2, 3, 4]:
+                add_scenario(
+                    feature,
+                    label,
+                    value,
+                    education_labels[value],
+                )
 
         scenario_df = pd.DataFrame(scenario_rows).drop_duplicates(
             subset=["비교 항목", "입력값"]
         )
-        st.dataframe(scenario_df, hide_index=True, use_container_width=True)
+        st.dataframe(
+            scenario_df,
+            hide_index=True,
+            use_container_width=True,
+        )
 
         st.caption(
             "예상 점수 차이는 모델의 반응을 보여주는 비교값입니다. "
             "실제 환경에서 그 조건만 바꾸면 성적이 같은 폭으로 달라진다는 인과적 의미는 없습니다."
         )
-
-
-# ============================================================
-# 7. 프로젝트의 분석 기준과 한계
-# ============================================================
-st.divider()
-with st.expander("프로젝트의 분석 기준과 한계"):
-    st.markdown(
-        """
-        **분석 기준**
-        - 예측 대상은 최종 수학 성적 G3(0~20점)입니다.
-        - G3 예측 점수가 0~9점이면 하위, 10~14점이면 중위, 15~20점이면 상위로 분류합니다.
-        - 세 수준은 본 프로젝트에서 설정한 기준이며 공식 성취도 등급은 아닙니다.
-        - G1과 G2는 최종 성적과 밀접한 중간 성적이므로 예측 변수에서 제외했습니다.
-        - 회귀 모델은 릿지 회귀, 랜덤 포레스트 회귀, 엑스트라 트리 회귀를 비교합니다.
-        - 기준 모델은 학습 데이터의 평균 성적만 예측하는 Dummy 회귀 모델입니다.
-        - 학습 데이터와 평가 데이터는 80:20으로 분리하고, 학습 데이터에서 5겹 교차검증으로 모델을 선택합니다.
-
-        **데이터와 해석의 한계**
-        - UCI 자료는 포르투갈의 특정 학교 학생 자료이며 한국 학생 전체를 대표하지 않습니다.
-        - 데이터에는 강남·대치동 여부, 학원 수준, 사교육 시간, 학교별 시험 난이도 같은 정보가 없습니다.
-        - 추가 유료 수업 여부(paid)는 수학 과목의 유료 수업 여부만 뜻하며 학원 수준이나 지역을 나타내지 않습니다.
-        - 부모의 교육 수준 변수는 원자료의 교육 단계 구분을 한국의 학교급과 직접 대응시키기 어려워 예측 변수에서 제외했습니다.
-        - 부모의 교육 수준, 인터넷 이용, 통학 시간 등은 데이터에 기록된 배경 정보이며 성적의 원인이라고 단정할 수 없습니다.
-        - 모델 예측은 학습 데이터에서 발견한 패턴을 바탕으로 한 추정값이며 실제 개인의 성적을 보장하지 않습니다.
-        - 100점 환산값은 G3에 5를 곱한 비례 환산 참고값이며 한국 학교의 실제 내신 점수와 같지 않습니다.
-        """
-    )
-
-st.caption("MATH INSIGHT | UCI Student Performance 기반 수학 성취도 예측 프로젝트")
