@@ -937,13 +937,14 @@ with tab_predict:
         "입력한 정보를 바탕으로 최종 성적 G3를 먼저 예측하고, 예측 점수에 따라 세 수준으로 분류합니다."
     )
 
-    studytime_labels = {
+       studytime_labels = {
         1: "1단계 · 주 2시간 미만",
         2: "2단계 · 주 2~5시간",
         3: "3단계 · 주 5~10시간",
         4: "4단계 · 주 10시간 초과",
     }
-      travel_labels = {
+
+    travel_labels = {
         1: "1 · 15분 미만",
         2: "2 · 15~30분",
         3: "3 · 30분~1시간",
@@ -954,7 +955,6 @@ with tab_predict:
     max_absences = max(30, int(data["absences"].max()))
     default_failures = int(round(data["failures"].median()))
     max_failures = max(4, int(data["failures"].max()))
-
     with st.form("student_prediction_form"):
         st.markdown("**① 기본 학습 습관**")
         first_left, first_right = st.columns(2)
